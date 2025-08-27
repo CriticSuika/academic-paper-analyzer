@@ -1,0 +1,140 @@
+**Project Specification: AI-Augmented Academic Paper Analyzer**
+
+**Project Objective**
+Create a system where academic papers and abstract slides are uploaded to Google Drive, automatically processed by ChatGPT, and displayed in a structured Notion database for easy tracking, filtering, and feedback.
+
+---
+
+**1. Tools Overview**
+
+| Tool                | Purpose                                                       |
+| ------------------- | ------------------------------------------------------------- |
+| Google Drive        | File storage for academic papers (PDF) and abstracts (PPTX)   |
+| Notion              | Frontend for structured database of papers and user feedback  |
+| Make (Integromat)   | Workflow automation and orchestration layer                   |
+| ChatGPT             | Language model for summarizing papers and extracting keywords |
+| Google Apps Script  | Real-time push notifications for Drive changes                |
+| Supabase (Optional) | External database for versioning and analytics                |
+| Pinecone (Optional) | Semantic vector search for future similarity suggestions      |
+| Grobid (Optional)   | Paper metadata extraction (authors, references, etc.)         |
+
+---
+
+**2. Folder Structure in Google Drive**
+
+Each paper is stored in a separate folder:
+
+/AcademicPapers/{PaperName}
+
+* paper.pdf
+* abstract.pptx
+
+---
+
+**3. Notion Database: Paper Library**
+
+| Field Name      | Type         | Description                                             |
+| --------------- | ------------ | ------------------------------------------------------- |
+| Paper Name      | Title        | Title of the paper                                      |
+| Link to Files   | URL          | Link to the folder in Google Drive                      |
+| Abstract        | Text         | ChatGPT-generated summary                               |
+| Keywords        | Multi-select | Controlled vocabulary or GPT-generated key terms        |
+| Field of Study  | Select       | Automatically inferred field (e.g., NLP, Biology, etc.) |
+| Similar Papers  | Relation     | Papers recommended based on similarity                  |
+| Feedback Rating | Number (1–5) | User rating for quality of summary                      |
+| Needs Revision  | Checkbox     | Checked if user feels the summary needs improvement     |
+| Last Updated    | Date         | Timestamp of the last refresh                           |
+
+---
+
+**4. Workflow Overview**
+
+**Step 1: Upload Files**
+
+* Users create a new folder under /AcademicPapers and upload both `paper.pdf` and `abstract.pptx`.
+
+**Step 2: Detect New Uploads**
+
+* Google Apps Script detects new folders and sends a webhook to Make.
+
+**Step 3: Preprocessing Files**
+
+* If paper is scanned:
+
+  * Use Tesseract OCR or Google Vision API.
+* Parse PDFs with `pdfplumber` or `PyMuPDF`.
+* Convert PPTX to text using Python libraries.
+
+**Step 4: Analyze with ChatGPT**
+
+* Prompt to ChatGPT:
+
+  1. Read the paper and abstract.
+  2. Summarize the key ideas.
+  3. Extract 5–10 keywords.
+  4. Infer the academic field.
+  5. Return JSON: summary, keywords, field
+
+**Step 5: Extract Metadata (Optional)**
+
+* Use Grobid to extract author, DOI, references.
+
+**Step 6: Update Notion**
+
+* If new: Create record
+* If exists: Update `Abstract`, `Keywords`, `Last Updated`
+
+**Step 7: Handle User Feedback**
+
+* Users can rate summary (1–5)
+* Can mark it as needing revision
+* This feedback is stored in Notion and can be used to improve future prompts
+
+**Step 8: Semantic Similarity (Optional)**
+
+* Store GPT-generated embeddings in Pinecone
+* Use vector search to suggest related papers
+* Update the `Similar Papers` field in Notion
+
+**Step 9: Notify Users**
+
+* Use Slack or email notification from Make when processing is completed
+
+---
+
+**5. Improvements Over Base Spec**
+
+| Area                | Improvement                                                          |
+| ------------------- | -------------------------------------------------------------------- |
+| File Detection      | Use Google Apps Script for real-time notification                    |
+| File Preprocessing  | Add PDF and PPTX parsing, OCR support                                |
+| Summary Quality     | Add user rating and feedback field in Notion                         |
+| Keyword Consistency | Enforce controlled vocabulary, deduplicate with fuzzy logic          |
+| Metadata Handling   | Use Grobid to enrich Notion entries                                  |
+| Similarity Search   | Store embeddings in Pinecone, show similar papers in Notion          |
+| Notification UX     | Add push notifications when processing finishes                      |
+| Scalability         | Add optional Supabase backend for storage, versioning, and analytics |
+
+---
+
+**6. Deployment Requirements**
+
+| Component           | Notes                                                                 |
+| ------------------- | --------------------------------------------------------------------- |
+| Notion API          | Integration token with write access to paper library DB               |
+| Google Drive API    | Full access to `/AcademicPapers` directory                            |
+| OpenAI API          | GPT-4 or GPT-4o key                                                   |
+| Google Apps Script  | Deployed with permissions to monitor Drive changes                    |
+| Make                | Workflow automation tool with necessary modules for HTTP, Drive, etc. |
+| Supabase (optional) | Requires setup of table structure and API keys                        |
+| Pinecone (optional) | Requires embedding generation and storage logic                       |
+
+---
+
+**7. Deliverables**
+
+* Functional Notion database of all papers
+* Accurate summaries and keyword filters
+* Feedback-enabled refinement system
+* Real-time, automated workflow from file upload to Notion update
+* Optional: semantic similarity and metadata extraction enhancements

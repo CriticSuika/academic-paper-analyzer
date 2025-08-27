@@ -1,0 +1,183 @@
+{
+  "name": "Academic Paper Processor",
+  "flow": [
+    {
+      "id": 1,
+      "module": "webhook:receive",
+      "version": 1,
+      "parameters": {
+        "hook": "YOUR_WEBHOOK_ID_HERE"
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "google-drive:downloadFile",
+      "version": 1,
+      "parameters": {
+        "drive": "MY_DRIVE",
+        "fileId": "{{1.files.pdf.id}}",
+        "fileName": "{{1.folder.name}}_paper.pdf"
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "http:request",
+      "version": 3,
+      "parameters": {
+        "url": "YOUR_NODE_SERVER_URL/webhook/drive-change",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "folder": {
+            "name": "{{1.folder.name}}",
+            "id": "{{1.folder.id}}",
+            "url": "{{1.folder.url}}"
+          },
+          "files": {
+            "pdf": {
+              "name": "{{1.files.pdf.name}}",
+              "id": "{{1.files.pdf.id}}",
+              "content": "{{2.data}}"
+            }
+          }
+        }
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 500,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "tools:setVariables",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "variables": [
+          {
+            "name": "paperName",
+            "value": "{{1.folder.name}}"
+          },
+          {
+            "name": "processingStatus",
+            "value": "{{4.statusCode}}"
+          },
+          {
+            "name": "responseMessage",
+            "value": "{{4.data.message}}"
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 800,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "router:condition",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "condition": "{{5.processingStatus}} = 202"
+      },
+      "metadata": {
+        "designer": {
+          "x": 1100,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 7,
+      "module": "tools:sleep",
+      "version": 1,
+      "parameters": {
+        "delay": 300
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 1400,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 8,
+      "module": "slack:createMessage",
+      "version": 1,
+      "parameters": {
+        "channel": "#academic-papers",
+        "username": "Academic Paper Bot"
+      },
+      "mapper": {
+        "text": "📄 New paper processing completed!\n\n*Paper:* {{5.paperName}}\n*Status:* Successfully processed\n*Drive Link:* {{1.folder.url}}\n\nThe paper has been analyzed and added to the Notion database.",
+        "attachments": []
+      },
+      "metadata": {
+        "designer": {
+          "x": 1700,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 9,
+      "module": "slack:createMessage",
+      "version": 1,
+      "parameters": {
+        "channel": "#academic-papers",
+        "username": "Academic Paper Bot"
+      },
+      "mapper": {
+        "text": "⚠️ Paper processing failed!\n\n*Paper:* {{5.paperName}}\n*Error:* Processing returned status {{5.processingStatus}}\n*Drive Link:* {{1.folder.url}}\n\nPlease check the logs and try reprocessing.",
+        "attachments": []
+      },
+      "metadata": {
+        "designer": {
+          "x": 1400,
+          "y": 100
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTimeout": 300,
+      "sequential": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us1.make.com"
+  }
+}
