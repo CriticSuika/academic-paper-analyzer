@@ -1,16 +1,29 @@
 const { PythonShell } = require('python-shell');
 const path = require('path');
 const fs = require('fs');
+const NodePdfProcessor = require('./nodePdfProcessor');
 
 class FileProcessor {
   constructor() {
     this.pythonScriptsPath = path.join(__dirname, '../../python-scripts');
+    this.nodePdfProcessor = new NodePdfProcessor();
   }
 
   async processPDF(pdfFilePath) {
+    // Try Node.js PDF parser first
     try {
-      const scriptPath = path.join(this.pythonScriptsPath, 'pdf_parser.py');
-      
+      console.log('Trying Node.js PDF parser...');
+      const result = await this.nodePdfProcessor.processPDF(pdfFilePath);
+      if (result.success) {
+        return result;
+      }
+    } catch (error) {
+      console.warn('Node.js PDF parser failed:', error.message);
+    }
+
+    // Fallback to PyPDF2 Python script
+    try {
+      console.log('Trying PyPDF2 Python parser...');
       const options = {
         mode: 'text',
         pythonOptions: ['-u'],
@@ -19,10 +32,11 @@ class FileProcessor {
       };
 
       return new Promise((resolve, reject) => {
-        PythonShell.run('pdf_parser.py', options, (err, results) => {
+        PythonShell.run('pdf_parser_pypdf2.py', options, (err, results) => {
           if (err) {
-            console.error('PDF processing error:', err);
-            reject(err);
+            console.error('PyPDF2 processing error:', err);
+            // Try original pdfplumber script as last resort
+            this.tryOriginalPdfParser(pdfFilePath, resolve, reject);
             return;
           }
 
@@ -30,7 +44,8 @@ class FileProcessor {
             const result = JSON.parse(results[0]);
             resolve(result);
           } catch (parseError) {
-            reject(new Error(`Failed to parse PDF processing result: ${parseError.message}`));
+            // Try original pdfplumber script as last resort
+            this.tryOriginalPdfParser(pdfFilePath, resolve, reject);
           }
         });
       });
@@ -38,6 +53,30 @@ class FileProcessor {
       console.error('Error processing PDF:', error);
       throw error;
     }
+  }
+
+  tryOriginalPdfParser(pdfFilePath, resolve, reject) {
+    console.log('Trying original pdfplumber parser as last resort...');
+    const options = {
+      mode: 'text',
+      pythonOptions: ['-u'],
+      scriptPath: this.pythonScriptsPath,
+      args: [pdfFilePath]
+    };
+
+    PythonShell.run('pdf_parser.py', options, (err, results) => {
+      if (err) {
+        reject(new Error(`All PDF parsing methods failed. Last error: ${err.message}`));
+        return;
+      }
+
+      try {
+        const result = JSON.parse(results[0]);
+        resolve(result);
+      } catch (parseError) {
+        reject(new Error(`All PDF parsing methods failed. Parse error: ${parseError.message}`));
+      }
+    });
   }
 
 
